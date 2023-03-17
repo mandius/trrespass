@@ -28,8 +28,8 @@ ProfileParams *p;
 // DRAMLayout     g_mem_layout = {{{0x4080,0x88000,0x110000,0x220000,0x440000,0x4b300}, 6}, 0xffff80000, ((1<<13)-1)};
 // DRAMLayout 			g_mem_layout = { {{0x2040, 0x44000, 0x88000, 0x110000, 0x220000}, 5}, 0xffffc0000, ((1 << 13) - 1) };
 // DRAMLayout 			g_mem_layout = {{{0x2040,0x24000,0x48000,0x90000},4}, 0xffffe0000, ((1<<13)-1)};
-DRAMLayout      g_mem_layout = {{{0x4080,0x48000,0x90000,0x120000,0x1b300}, 5}, 0xffffc0000, ROW_SIZE-1};
 
+DRAMLayout   g_mem_layout = {{{0x12000,0x24000,0x48000}, 3}, 0xffff0000, ROW_SIZE-1};
 void read_config(SessionConfig * cfg, char *f_name)
 {
 	FILE *fp = fopen(f_name, "rb");
@@ -87,7 +87,7 @@ int main(int argc, char **argv)
 
 	alloc_buffer(&mem);
 	set_physmap(&mem);
-	gmem_dump();
+	gmem_dump();  //MK: A debug function to dump the memory layout
 
 	SessionConfig s_cfg;
 	memset(&s_cfg, 0, sizeof(SessionConfig));
@@ -95,12 +95,33 @@ int main(int argc, char **argv)
 		read_config(&s_cfg, p->conf_file);
 	} else {
 		// HARDCODED values
-		s_cfg.h_rows = PATT_LEN;
+		s_cfg.h_rows = 16384;
 		s_cfg.h_rounds = p->rounds;
-		s_cfg.h_cfg = N_SIDED;
-		s_cfg.d_cfg = RANDOM;
+		
+		//Hammer Config	
+		//ASSISTED_DOUBLE_SIDED
+		//FREE_TRIPLE_SIDED
+		//N_SIDED
+		
+		s_cfg.h_cfg = ASSISTED_DOUBLE_SIDED;
+
+		//Hammer Data
+		//RANDOM,
+		//ONE_TO_ZERO = O2Z,
+		//ZERO_TO_ONE = Z2O,
+		//REVERSE = REVERSE_VAL
+
+		s_cfg.d_cfg = ONE_TO_ZERO;
 		s_cfg.base_off = p->base_off;
 		s_cfg.aggr_n = p->aggr;
+
+		printf("s_cfg.h_rows =%0d\n", s_cfg.h_rows);
+		printf("s_cfg.h_rounds = %0d\n", s_cfg.h_rounds);
+		printf("s_cfg.h_cfg = %0d\n", s_cfg.h_cfg);
+		printf("s_cfg.d_cfg = %0d\n", s_cfg.d_cfg)  ;
+		printf("s_cfg.base_off = %0d\n", s_cfg.base_off)  ;
+		printf("s_cfg.aggr_n = %0d\n", s_cfg.aggr_n) ;
+	
 	}
 
 	if (p->fuzzing) {

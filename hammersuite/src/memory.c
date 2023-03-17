@@ -23,6 +23,18 @@ uint64_t get_pfn(uint64_t entry)
 	return ((entry) & 0x7fffffffffffffff);
 }
 
+//MK: this is how each entry in /proc/pagemap looks like:
+//MK Bits 0-54 page frame number (PFN) if present
+//MK Bits 0-4 swap type if swapped
+//MK Bits 5-54 swap offset if swapped
+//MK Bit 55 pte is soft-dirty (see Documentation/admin-guide/mm/soft-dirty.rst)
+//MK Bit 56 page exclusively mapped (since 4.2)
+//MK Bits 57-60 zero
+//MK Bit 61 page is file-page or shared-anon (since 3.5)
+//MK Bit 62 page swapped
+//MK Bit 63 page present
+
+
 physaddr_t get_physaddr(uint64_t v_addr, int pmap_fd)
 {
 	uint64_t entry;
@@ -37,6 +49,8 @@ physaddr_t get_physaddr(uint64_t v_addr, int pmap_fd)
 	}
 	// int rd = fread(&entry, sizeof(entry), 1 ,fp);
 	int bytes_read = pread(pmap_fd, &entry, sizeof(entry), offset);
+
+	//MK printf("get_physical_address entry:: %0llx\n", entry);
 
 	assert(bytes_read == 8);
 	assert(entry & (1ULL << 63));
@@ -67,6 +81,7 @@ void set_physmap(MemoryBuffer * mem)
 	for (uint64_t tmp = (uint64_t) mem->buffer, idx = 0;
 	     tmp < (uint64_t) mem->buffer + mem->size; tmp += PAGE_SIZE) {
 		pte_t tmp_pte = { (char *)tmp, get_physaddr(tmp, pmap_fd) };
+		//MK printf("Set Phys Map:: phys_addr=%0llx, v_addr=%p\n", tmp_pte.p_addr, tmp_pte.v_addr);
 		physmap[idx] = tmp_pte;
 		idx++;
 	}

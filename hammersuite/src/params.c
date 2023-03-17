@@ -144,9 +144,10 @@ int process_argv(int argc, char *argv[], ProfileParams *p)
 				break;
 			case 2:
 				p->g_flags |= F_ALLOC_HUGE_2M;
+				break;
 			case 3:
-				p->huge_file = (char *)malloc(sizeof(char) * strlen(optarg));
-				strncpy(p->huge_file, optarg, strlen(optarg));
+				//MK: p->huge_file = (char *)malloc(sizeof(char) * strlen(optarg));
+				//MK: strncpy(p->huge_file, optarg, strlen(optarg));
 				p->g_flags |= F_ALLOC_HUGE_1G;
 				break;
 			case 4:
@@ -175,7 +176,7 @@ int process_argv(int argc, char *argv[], ProfileParams *p)
 			p->rounds = atoi(optarg);
 			break;
 		case 'v':
-			p->g_flags |= F_VERBOSE;
+			p->g_flags |= (F_VERBOSE);
 			break;
 		case 'a':
 			p->aggr = atoi(optarg);
@@ -205,7 +206,8 @@ int process_argv(int argc, char *argv[], ProfileParams *p)
 		}
 	}
 #ifdef HUGE_YES
-	p->g_flags |= F_ALLOC_HUGE_1G;
+	//MK: Needed to comment this to enable 2M Hugepage mode
+	//MK   p->g_flags |= F_ALLOC_HUGE_1G;
 #endif
 
 	if (p->g_flags & (F_ALLOC_HUGE_2M | F_ALLOC_HUGE_1G)) {

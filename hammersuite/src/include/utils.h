@@ -35,6 +35,7 @@
 
 #define TIMESPEC_NSEC(ts) ((ts)->tv_sec * 1e9 + (ts)->tv_nsec)
 
+#define DDR3 1
 //----------------------------------------------------------
 //                      Static functions
 
@@ -51,7 +52,6 @@ void clflushopt(volatile void *p)
 	asm volatile ("clflush (%0)\n"::"r" (p):"memory");
 #else
 	asm volatile ("clflushopt (%0)\n"::"r" (p):"memory");
-#
 #endif
 }
 

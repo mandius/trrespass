@@ -145,24 +145,26 @@ char *hPatt_2_str(HammerPattern * h_patt, int fields)
 
 void print_start_attack(HammerPattern *h_patt)
 {
+	//MK printf("print_start_attack\n");
 	fprintf(out_fd, "%s : ", hPatt_2_str(h_patt, ROW_FIELD | BK_FIELD));
 	fflush(out_fd);
 }
 
 void print_end_attack()
 {
+	//MK printf("print_end_attack\n");
 	fprintf(out_fd, "\n");
 	fflush(out_fd);
 }
 
 void export_flip(FlipVal * flip)
 {
-	if (p->g_flags & F_VERBOSE) {
+	//MK if ((p->g_flags) & (F_VERBOSE)) {
 		fprintf(stdout, "[FLIP] - (%02x => %02x)\t vict: %s \taggr: %s \n",
 				flip->f_og, flip->f_new, dAddr_2_str(flip->d_vict, ALL_FIELDS),
 				hPatt_2_str(flip->h_patt, ROW_FIELD | BK_FIELD));
 		fflush(stdout);
-	}
+	//MK }
 
 #ifdef FLIPTABLE
 		fprintf(out_fd, "%02x,%02x,%s ", flip->f_og, flip->f_new,
@@ -306,7 +308,7 @@ void fill_row(HammerSuite *suite, DRAMAddr *d_addr, HammerData data_patt, int re
 void cl_rand_fill(DRAM_pte * pte)
 {
 	char *rand_data = cl_rand_gen(&pte->d_addr);
-	memcpy(pte->v_addr, rand_data, CL_SIZE);
+	memcpy(pte->v_addr, rand_data, CL_SIZE);  //MK CL_SIZE  -> 64 bytes
 }
 
 uint64_t cl_rand_comp(DRAM_pte * pte)
@@ -345,6 +347,7 @@ void init_random(HammerSuite * suite)
 			for (size_t col = 0; col < ROW_SIZE; col += (1 << 6)) {
 				d_tmp.col = col;
 				DRAM_pte d_pte = get_dram_pte(mapper, &d_tmp);
+				//MK printf("virtual address = %0llx\n", d_pte.v_addr);
 				cl_rand_fill(&d_pte);
 			}
 		}
@@ -649,6 +652,7 @@ int assisted_double_sided_test(HammerSuite * suite)
 			h_patt.d_lst[1].bank = bk;
 			h_patt.d_lst[2].bank = bk;
 			// fill all the aggressor rows
+			print_start_attack(&h_patt);
 			for (int idx = 0; idx < 3; idx++) {
 				fill_row(suite, &h_patt.d_lst[idx], cfg->d_cfg, 0);
 				// fprintf(stderr, "d_addr: %s\n", dram_2_str(&h_patt.d_lst[idx]));
@@ -658,6 +662,7 @@ int assisted_double_sided_test(HammerSuite * suite)
 			fprintf(stderr, "%ld ", time);
 
 			scan_rows(suite, &h_patt, 0);
+			print_end_attack();
 			for (int idx = 0; idx<3; idx++) {
 				fill_row(suite, &h_patt.d_lst[idx], cfg->d_cfg, 1);
 			}
@@ -855,6 +860,11 @@ void hammer_session(SessionConfig * cfg, MemoryBuffer * memory)
 	MemoryBuffer mem = *memory;
 
 	DRAMAddr d_base = phys_2_dram(virt_2_phys(mem.buffer, &mem));
+
+	
+	//MK printf("Base Address DRAM Location: Bank =%0lld  Row= %0lld Column= %0lld\n", d_base.bank, d_base.row, d_base.col);
+	
+
 	d_base.row += cfg->base_off;
 
 	create_dir(DATA_DIR);
@@ -907,6 +917,16 @@ void hammer_session(SessionConfig * cfg, MemoryBuffer * memory)
 	suite->d_base = d_base;
 	suite->mapper = (ADDRMapper *) malloc(sizeof(ADDRMapper));
 	init_addr_mapper(suite->mapper, &mem, &suite->d_base, cfg->h_rows);
+
+	//MK #ifdef DEBUG_PRINT
+	//MK printf("base_row =%0d, h_rows=%0d, get_banks_count=%0d \n", suite->mapper->base_row, cfg->h_rows, get_banks_cnt());
+	//MK for (int k=0; k< (cfg->h_rows) * get_banks_cnt();k++){
+	//MK 	for(int i=0; i< suite->mapper->row_maps[k].len; i++) {
+	//MK 		printf("[%0d][%0d]:: ROW=%0lld , COL=%0lld, BANK =%0lld, VADDR=%0llx\n",k, i ,suite->mapper->row_maps[k].lst[i].d_addr.row, suite->mapper->row_maps[k].lst[i].d_addr.col, suite->mapper->row_maps[k].lst[i].d_addr.bank, suite->mapper->row_maps[k].lst[i].v_addr);
+	//MK 	}
+	//MK }
+	//MK #endif
+
 
 #ifndef FLIPTABLE
 	export_cfg(suite);	// export the configuration of the experiment to file.
