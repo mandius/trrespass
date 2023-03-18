@@ -29,7 +29,7 @@
 #define BK_FIELD 		1<<2
 #define P_FIELD			1<<3
 #define ALL_FIELDS		(ROW_FIELD | COL_FIELD | BK_FIELD)
-#define FLIPTABLE
+#define FLIPTABLE     		1
 
 /*
  h_patt		= hammer pattern (e.g., DOUBLE_SIDED)
