@@ -29,7 +29,7 @@ ProfileParams *p;
 // DRAMLayout 			g_mem_layout = { {{0x2040, 0x44000, 0x88000, 0x110000, 0x220000}, 5}, 0xffffc0000, ((1 << 13) - 1) };
 // DRAMLayout 			g_mem_layout = {{{0x2040,0x24000,0x48000,0x90000},4}, 0xffffe0000, ((1<<13)-1)};
 
-DRAMLayout   g_mem_layout = {{{0x12000,0x24000,0x48000}, 3}, 0xffff0000, ROW_SIZE-1};
+DRAMLayout   g_mem_layout = {{{0x12000,0x24000,0x48000}, 3}, 0xffff0000, 8};
 void read_config(SessionConfig * cfg, char *f_name)
 {
 	FILE *fp = fopen(f_name, "rb");
@@ -40,6 +40,22 @@ void read_config(SessionConfig * cfg, char *f_name)
 	assert(res == 1);
 	fclose(fp);
 	return;
+}
+
+void write_config(SessionConfig  cfg) 
+
+{
+	//Export the configuration in binary to a file
+	FILE* cfg_f;
+
+	cfg_f = fopen("config.bin", "wb");
+	
+	size_t res;
+	assert(cfg_f != NULL);
+	printf("cfg=  %0d\n", cfg);
+	res = fwrite(&cfg, sizeof(SessionConfig), 1, cfg_f);
+	assert(res == 1);
+	fclose(cfg_f);
 }
 
 void gmem_dump()
@@ -92,10 +108,11 @@ int main(int argc, char **argv)
 	SessionConfig s_cfg;
 	memset(&s_cfg, 0, sizeof(SessionConfig));
 	if (p->g_flags & F_CONFIG) {
+		printf("cfg file name = %s\n", p->conf_file);
 		read_config(&s_cfg, p->conf_file);
 	} else {
 		// HARDCODED values
-		s_cfg.h_rows = 16384;
+		s_cfg.h_rows = 4;
 		s_cfg.h_rounds = p->rounds;
 		
 		//Hammer Config	
@@ -103,7 +120,7 @@ int main(int argc, char **argv)
 		//FREE_TRIPLE_SIDED
 		//N_SIDED
 		
-		s_cfg.h_cfg = ASSISTED_DOUBLE_SIDED;
+		s_cfg.h_cfg = TEST;
 
 		//Hammer Data
 		//RANDOM,
@@ -111,7 +128,7 @@ int main(int argc, char **argv)
 		//ZERO_TO_ONE = Z2O,
 		//REVERSE = REVERSE_VAL
 
-		s_cfg.d_cfg = ONE_TO_ZERO;
+		s_cfg.d_cfg = RANDOM;
 		s_cfg.base_off = p->base_off;
 		s_cfg.aggr_n = p->aggr;
 
@@ -121,6 +138,7 @@ int main(int argc, char **argv)
 		printf("s_cfg.d_cfg = %0d\n", s_cfg.d_cfg)  ;
 		printf("s_cfg.base_off = %0d\n", s_cfg.base_off)  ;
 		printf("s_cfg.aggr_n = %0d\n", s_cfg.aggr_n) ;
+		write_config(s_cfg);
 	
 	}
 

@@ -110,7 +110,7 @@ int process_argv(int argc, char *argv[], ProfileParams *p)
 		{"align", required_argument, 0, 0},
 		{"huge", optional_argument, 0, 0},
 		{"HUGE", optional_argument, 0, 0},
-		{"conf", optional_argument, 0, 0},
+		{"conf", required_argument, 0, 0},
 		{"off", required_argument, 0, 0},
 		{"no-overwrite", no_argument, 0, 0},
 		{.name = "target-pattern",.has_arg = required_argument,.flag = NULL,.val='T'},
@@ -151,7 +151,8 @@ int process_argv(int argc, char *argv[], ProfileParams *p)
 				p->g_flags |= F_ALLOC_HUGE_1G;
 				break;
 			case 4:
-				p->g_flags |= F_CONFIG;
+				//printf("checkpoint1 = %s %0d\n", optarg, strlen(optarg));
+				p->g_flags |= (F_CONFIG);
 				if (!optarg)
 					break;
 				p->conf_file = (char *)malloc(sizeof(char) * strlen(optarg));

@@ -17,6 +17,7 @@ typedef enum {
 	ASSISTED_DOUBLE_SIDED,
 	FREE_TRIPLE_SIDED,
 	N_SIDED,
+	TEST
 } HammerConfig;
 
 typedef enum {

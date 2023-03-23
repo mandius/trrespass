@@ -30,7 +30,7 @@ RowMap gen_row_map(DRAMAddr d_src, MemoryBuffer * mem) //dram_addr contains base
 	DRAM_pte *dst = (DRAM_pte *) malloc(sizeof(DRAM_pte) * g_rmap_len); //MK size 128
 	d_src.col = 0;
 
-	for (size_t col = 0; col < g_rmap_len; col++, d_src.col += (1 << 6)) {  ///Why d_src.col is increased this much?
+	for (size_t col = 0; col < g_rmap_len; col++, d_src.col += (1 << CL_SHIFT)) {  ///Why d_src.col is increased this much?
 		dst[col].d_addr = d_src;
 		dst[col].v_addr = phys_2_virt(dram_2_phys(d_src), mem); //When does it store an entry ffffffffffff?
 		//printf("gen_row_map:: bank=%0d, row=%0d, col=%0d, physical_addr=%0llx, virtual_addr=%0llx\n", d_src.bank, d_src.row, d_src.col, dram_2_phys(d_src), phys_2_virt(dram_2_phys(d_src), mem));

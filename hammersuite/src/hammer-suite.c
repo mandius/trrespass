@@ -211,6 +211,102 @@ int random_int(int min, int max)
 	return number;
 }
 
+
+void check_latency_time(HammerPattern* patt, MemoryBuffer* mem) {
+
+	char** v_lst = (char**) malloc(sizeof(char*)*patt->len);
+	for (size_t i = 0; i < patt->len; i++) {
+		v_lst[i] = phys_2_virt(dram_2_phys(patt->d_lst[i]), mem);
+	}
+
+	sched_yield();
+	//if (p->threshold > 0) {
+	//	uint64_t t0 = 0, t1 = 0;
+	//	// Threshold value depends on your system
+	//	while (abs((int64_t) t1 - (int64_t) t0) < p->threshold) {
+	//		t0 = rdtscp();
+	//		*(volatile char *)v_lst[0];
+	//		clflushopt(v_lst[0]);
+	//		t1 = rdtscp();
+	//	}
+	//}
+
+
+	uint64_t cl0, cl1;
+	uint64_t* latencies;
+	latencies= (uint64_t*) malloc(sizeof(uint64_t)*patt->rounds);
+	
+	
+	for ( int i = 0; i < 2*patt->rounds;  i++) {
+
+		cl0 = realtime_now();
+		mfence();
+	
+		*(volatile char*) v_lst[0];	
+		
+		clflushopt(v_lst[0]);
+		
+		cl1 = realtime_now();
+		latencies[i%(patt->rounds)] = cl1-cl0;
+
+	}
+
+	FILE* latency_time;
+	latency_time = fopen("latency_time.log", "w");
+	for(int i=0; i<patt->rounds; i++){
+		fprintf(latency_time,"%0lld    %0lld\n", i, latencies[i]);
+	}
+		
+
+	free(v_lst);
+	
+
+}
+
+
+uint64_t check_access_latency(HammerPattern* patt, MemoryBuffer* mem) {
+
+	char** v_lst = (char**) malloc(sizeof(char*)*patt->len);
+	for (size_t i = 0; i < patt->len; i++) {
+		v_lst[i] = phys_2_virt(dram_2_phys(patt->d_lst[i]), mem);
+	}
+
+	sched_yield();
+	//if (p->threshold > 0) {
+	//	uint64_t t0 = 0, t1 = 0;
+	//	// Threshold value depends on your system
+	//	while (abs((int64_t) t1 - (int64_t) t0) < p->threshold) {
+	//		t0 = rdtscp();
+	//		*(volatile char *)v_lst[0];
+	//		clflushopt(v_lst[0]);
+	//		t1 = rdtscp();
+	//	}
+	//}
+
+
+	uint64_t cl0, cl1, sum;
+	sum=0;
+	cl0 = realtime_now();
+	for ( int i = 0; i < patt->rounds;  i++) {
+		mfence();
+		for (size_t j = 0; j < patt->len; j++) {
+			*(volatile char*) v_lst[j];
+		}
+		for (size_t j = 0; j < patt->len; j++) {
+			clflushopt(v_lst[j]);
+		}
+	}
+	cl1 = realtime_now();
+
+	free(v_lst);
+	return (cl1-cl0) / (patt->rounds);
+
+}
+
+
+
+
+
 uint64_t hammer_it(HammerPattern* patt, MemoryBuffer* mem) {
 
 	char** v_lst = (char**) malloc(sizeof(char*)*patt->len);
@@ -267,7 +363,7 @@ void __test_fill_random(char *addr, size_t size)
 // DRAMAddr needs to be a copy in order to leave intact the original address
 void fill_stripe(DRAMAddr d_addr, uint8_t val, ADDRMapper * mapper)
 {
-	for (size_t col = 0; col < ROW_SIZE; col += (1 << 6)) {
+	for (size_t col = 0; col < ROW_SIZE; col += (1 << CL_SHIFT)) {
 		d_addr.col = col;
 		DRAM_pte d_pte = get_dram_pte(mapper, &d_addr);
 		memset(d_pte.v_addr, val, CL_SIZE);
@@ -672,6 +768,124 @@ int assisted_double_sided_test(HammerSuite * suite)
 	free(h_patt.d_lst);
 }
 
+
+
+int mem_test(HammerSuite * suite)
+{
+	MemoryBuffer *mem = suite->mem;
+	SessionConfig *cfg = suite->cfg;
+	DRAMAddr d_base = suite->d_base;
+	d_base.col = 0;
+
+	HammerPattern h_patt;
+
+	h_patt.len = 2;
+	h_patt.rounds = cfg->h_rounds;
+
+	h_patt.d_lst = (DRAMAddr *) malloc(sizeof(DRAMAddr) * h_patt.len);
+	memset(h_patt.d_lst, 0x00, sizeof(DRAMAddr) * h_patt.len);
+
+	init_chunk(suite);
+	fprintf(stderr, "CL_SEED: %lx\n", CL_SEED);
+
+	h_patt.d_lst[1] = d_base;
+	//Taking any random bank, row and column
+	d_base.bank = rand()%get_banks_cnt();
+	d_base.row = d_base.row + rand()%(cfg->h_rows);
+	d_base.col = rand()%1024;
+
+	h_patt.d_lst[0] = d_base;
+
+
+	//uint64_t  access_latency;
+	//FILE* access_latency_log = NULL;
+	//access_latency_log = fopen("Access_Latency.log", "w");
+	//for (size_t row = 0; row < cfg->h_rows; row++) {	
+	//	for (size_t bk = 0; bk < get_banks_cnt(); bk++) {
+	//		for (size_t col = 0; col < (ROW_SIZE/CL_SIZE); col = col+16) {
+	//			h_patt.d_lst[1].bank = bk;
+	//			h_patt.d_lst[1].row = suite->d_base.row + row;
+	//			h_patt.d_lst[1].col = col;
+	//			fprintf(access_latency_log, "Access Latency {%0ld, %0ld, %0ld}::{%0ld, %0ld, %0ld}", h_patt.d_lst[0].bank, h_patt.d_lst[0].row, h_patt.d_lst[0].col,h_patt.d_lst[1].bank, h_patt.d_lst[1].row, h_patt.d_lst[1].col);
+	//			fflush(access_latency_log);
+	//			access_latency = check_access_latency(&h_patt, mem);
+	//			fprintf(access_latency_log," : %0ld\n", access_latency);
+	//			fflush(access_latency_log);
+	//		}
+	//	}
+	//}
+
+
+	//fclose(access_latency_log);
+
+	check_latency_time(&h_patt, mem);
+
+
+	////Same bank different row acces
+	//h_patt.d_lst[0] = d_base;
+	//h_patt.d_lst[1] = d_base;
+	//h_patt.d_lst[1].row = d_base.row +2;
+        //
+
+	//printf("Same Bank Different Row access latency: %0ld\n", access_latency);
+
+
+	////Same bank different row acces
+	//h_patt.d_lst[0] = d_base;
+	//h_patt.d_lst[1] = d_base;
+	//h_patt.d_lst[1].bank = d_base.bank +1;
+        //access_latency = check_access_latency(&h_patt, mem);
+
+	//printf("Different Bank Different Same Row access latency: %0ld\n", access_latency);
+
+
+
+	//for (int r0 = 1; r0 < cfg->h_rows; r0++) {
+	//	h_patt.d_lst[1].row = d_base.row + r0;
+	//	h_patt.d_lst[2].row = h_patt.d_lst[1].row + 2;
+	//	h_patt.d_lst[0].row =
+	//	    d_base.row + get_rnd_int(0, cfg->h_rows - 1);
+	//	while (h_patt.d_lst[0].row == h_patt.d_lst[1].row
+	//	       || h_patt.d_lst[0].row == h_patt.d_lst[2].row)
+	//		h_patt.d_lst[0].row =
+	//		    d_base.row + get_rnd_int(0, cfg->h_rows - 1);
+
+	//	if (h_patt.d_lst[2].row >= d_base.row + cfg->h_rows)
+	//		break;
+
+	//	h_patt.d_lst[0].bank = 0;
+	//	h_patt.d_lst[1].bank = 0;
+	//	h_patt.d_lst[2].bank = 0;
+	//	fprintf(stderr, "[HAMMER] - %s: ", hPatt_2_str(&h_patt, ROW_FIELD));
+	//	for (size_t bk = 0; bk < get_banks_cnt(); bk++) {
+	//		h_patt.d_lst[0].bank = bk;
+	//		h_patt.d_lst[1].bank = bk;
+	//		h_patt.d_lst[2].bank = bk;
+	//		// fill all the aggressor rows
+	//		print_start_attack(&h_patt);
+	//		for (int idx = 0; idx < 3; idx++) {
+	//			fill_row(suite, &h_patt.d_lst[idx], cfg->d_cfg, 0);
+	//			// fprintf(stderr, "d_addr: %s\n", dram_2_str(&h_patt.d_lst[idx]));
+	//		}
+	//		// fprintf(stderr, "d_addr: %s\n", dram_2_str(&h_patt.d_lst[idx]));
+	//		uint64_t time = hammer_it(&h_patt, mem);
+	//		fprintf(stderr, "%ld ", time);
+
+	//		scan_rows(suite, &h_patt, 0);
+	//		print_end_attack();
+	//		for (int idx = 0; idx<3; idx++) {
+	//			fill_row(suite, &h_patt.d_lst[idx], cfg->d_cfg, 1);
+	//		}
+	//	}
+	//	fprintf(stderr, "\n");
+	//}
+	
+	free(h_patt.d_lst);
+}
+
+
+
+
 int n_sided_test(HammerSuite * suite)
 {
 	MemoryBuffer *mem = suite->mem;
@@ -928,10 +1142,11 @@ void hammer_session(SessionConfig * cfg, MemoryBuffer * memory)
 	//MK #endif
 
 
-#ifndef FLIPTABLE
+
+//#ifndef FLIPTABLE
 	export_cfg(suite);	// export the configuration of the experiment to file.
 	fprintf(out_fd, OUT_HEAD);
-#endif
+//#endif
 
 	switch (cfg->h_cfg) {
 		case ASSISTED_DOUBLE_SIDED:
@@ -950,6 +1165,11 @@ void hammer_session(SessionConfig * cfg, MemoryBuffer * memory)
 		{
 			assert(cfg->aggr_n > 1);
 			suite->hammer_test = (int (*)(void *))n_sided_test;
+			break;
+		}
+		case TEST:
+		{
+			suite->hammer_test= (int (*)(void *)) mem_test;
 			break;
 		}
 		default:
