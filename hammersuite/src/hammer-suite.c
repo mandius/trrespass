@@ -284,10 +284,11 @@ uint64_t check_access_latency(HammerPattern* patt, MemoryBuffer* mem) {
 	//}
 
 
-	uint64_t cl0, cl1, sum;
-	sum=0;
-	cl0 = realtime_now();
+	uint64_t cl0, cl1, min;
+	min = ~(0);
+	
 	for ( int i = 0; i < patt->rounds;  i++) {
+		cl0 = realtime_now();
 		mfence();
 		for (size_t j = 0; j < patt->len; j++) {
 			*(volatile char*) v_lst[j];
@@ -295,11 +296,15 @@ uint64_t check_access_latency(HammerPattern* patt, MemoryBuffer* mem) {
 		for (size_t j = 0; j < patt->len; j++) {
 			clflushopt(v_lst[j]);
 		}
+		cl1 = realtime_now();
+		if((cl1-cl0)<min) {
+			min =cl1-cl0;
+		}
+
 	}
-	cl1 = realtime_now();
 
 	free(v_lst);
-	return (cl1-cl0) / (patt->rounds);
+	return min;
 
 }
 
@@ -341,7 +346,7 @@ uint64_t hammer_it(HammerPattern* patt, MemoryBuffer* mem) {
 	cl1 = realtime_now();
 
 	free(v_lst);
-	return (cl1-cl0) / 1000000;
+	return ((cl1-cl0)/1000000); //cl1 and cl0 are in ns, this gives time in ms
 
 }
 
@@ -770,6 +775,68 @@ int assisted_double_sided_test(HammerSuite * suite)
 
 
 
+
+
+int simple_double_sided_test(HammerSuite * suite)
+{
+	MemoryBuffer *mem = suite->mem;
+	SessionConfig *cfg = suite->cfg;
+	DRAMAddr d_base = suite->d_base;
+	d_base.col = 0;
+
+	HammerPattern h_patt;
+
+	h_patt.len = 2;
+	h_patt.rounds = cfg->h_rounds;
+
+	h_patt.d_lst = (DRAMAddr *) malloc(sizeof(DRAMAddr) * h_patt.len);
+	memset(h_patt.d_lst, 0x00, sizeof(DRAMAddr) * h_patt.len);
+
+	init_chunk(suite);
+	fprintf(stderr, "CL_SEED: %lx\n", CL_SEED);
+	h_patt.d_lst[0] = d_base;
+
+	for (int r0 = 1; r0 < cfg->h_rows; r0++) {
+		h_patt.d_lst[0].row = d_base.row + r0;
+		h_patt.d_lst[1].row = h_patt.d_lst[0].row + 2;
+		
+
+		if (h_patt.d_lst[1].row >= d_base.row + cfg->h_rows)
+			break;
+
+	
+		h_patt.d_lst[0].bank = 0;
+		h_patt.d_lst[1].bank = 0;
+		fprintf(stderr, "[HAMMER] - %s: ", hPatt_2_str(&h_patt, ROW_FIELD));
+		for (size_t bk = 0; bk < get_banks_cnt(); bk++) {
+			h_patt.d_lst[0].bank = bk;
+			h_patt.d_lst[1].bank = bk;
+			// fill all the aggressor rows
+			print_start_attack(&h_patt);
+			for (int idx = 0; idx < 2; idx++) {
+				fill_row(suite, &h_patt.d_lst[idx], cfg->d_cfg, 0);
+				// fprintf(stderr, "d_addr: %s\n", dram_2_str(&h_patt.d_lst[idx]));
+			}
+			// fprintf(stderr, "d_addr: %s\n", dram_2_str(&h_patt.d_lst[idx]));
+			uint64_t time = hammer_it(&h_patt, mem);
+			fprintf(stderr, "%ld ", time);
+
+			scan_rows(suite, &h_patt, 0);
+			print_end_attack();
+			for (int idx = 0; idx<2; idx++) {
+				fill_row(suite, &h_patt.d_lst[idx], cfg->d_cfg, 1);
+			}
+		}
+		fprintf(stderr, "\n");
+	}
+	free(h_patt.d_lst);
+}
+
+
+
+
+
+
 int mem_test(HammerSuite * suite)
 {
 	MemoryBuffer *mem = suite->mem;
@@ -797,23 +864,28 @@ int mem_test(HammerSuite * suite)
 	h_patt.d_lst[0] = d_base;
 
 
-	//uint64_t  access_latency;
-	//FILE* access_latency_log = NULL;
-	//access_latency_log = fopen("Access_Latency.log", "w");
-	//for (size_t row = 0; row < cfg->h_rows; row++) {	
-	//	for (size_t bk = 0; bk < get_banks_cnt(); bk++) {
-	//		for (size_t col = 0; col < (ROW_SIZE/CL_SIZE); col = col+16) {
-	//			h_patt.d_lst[1].bank = bk;
-	//			h_patt.d_lst[1].row = suite->d_base.row + row;
-	//			h_patt.d_lst[1].col = col;
-	//			fprintf(access_latency_log, "Access Latency {%0ld, %0ld, %0ld}::{%0ld, %0ld, %0ld}", h_patt.d_lst[0].bank, h_patt.d_lst[0].row, h_patt.d_lst[0].col,h_patt.d_lst[1].bank, h_patt.d_lst[1].row, h_patt.d_lst[1].col);
-	//			fflush(access_latency_log);
-	//			access_latency = check_access_latency(&h_patt, mem);
-	//			fprintf(access_latency_log," : %0ld\n", access_latency);
-	//			fflush(access_latency_log);
-	//		}
-	//	}
-	//}
+//	uint64_t  access_latency, count;
+//	FILE* access_latency_log = NULL;
+//	access_latency_log = fopen("Access_Latency.log", "w");
+//	count =0;
+//	for (size_t row = 0; row < cfg->h_rows; row++) {	
+//		for (size_t bk = 0; bk < get_banks_cnt(); bk++) {
+//			for (size_t col = 0; col < (ROW_SIZE/CL_SIZE); col = col+16) {
+//				count = count +1;
+//				h_patt.d_lst[1].bank = bk;
+//				h_patt.d_lst[1].row = suite->d_base.row + row;
+//				h_patt.d_lst[1].col = col;
+//				//fprintf(access_latency_log, "Access Latency {%0ld, %0ld, %0ld}::{%0ld, %0ld, %0ld}", h_patt.d_lst[0].bank, h_patt.d_lst[0].row, h_patt.d_lst[0].col,h_patt.d_lst[1].bank, h_patt.d_lst[1].row, h_patt.d_lst[1].col);
+//			
+//				fprintf(access_latency_log, "%0ld     ", count); 
+//			
+//				fflush(access_latency_log);
+//				access_latency = check_access_latency(&h_patt, mem);
+//				fprintf(access_latency_log,"  %0ld\n", access_latency);
+//				fflush(access_latency_log);
+//			}
+//		}
+//	}
 
 
 	//fclose(access_latency_log);
@@ -1167,6 +1239,13 @@ void hammer_session(SessionConfig * cfg, MemoryBuffer * memory)
 			suite->hammer_test = (int (*)(void *))n_sided_test;
 			break;
 		}
+		case SIMPLE_DOUBLE_SIDED:
+		{
+			assert(cfg->aggr_n > 1);
+			suite->hammer_test = (int (*)(void *))simple_double_sided_test;
+			break;
+		}
+
 		case TEST:
 		{
 			suite->hammer_test= (int (*)(void *)) mem_test;

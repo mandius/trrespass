@@ -10,14 +10,16 @@
 #define REVERSE_VAL 	(O2Z ^ Z2O)	// if you xor REVERSE with one of the stripe val it will give you the opposite
 
 static const char *config_str[] =
-    { "assisted-dbl", "free-triple", "%i_sided"};
+    { "assisted-dbl", "free-triple", "simple-dbl", "test", "N_sided"};
 static const char *data_str[] = { "random", "i2o", "o2i" };
 
 typedef enum {
 	ASSISTED_DOUBLE_SIDED,
 	FREE_TRIPLE_SIDED,
-	N_SIDED,
-	TEST
+	SIMPLE_DOUBLE_SIDED,
+	TEST,
+	N_SIDED
+
 } HammerConfig;
 
 typedef enum {

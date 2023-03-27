@@ -101,7 +101,10 @@ static inline __attribute__ ((always_inline))
 uint64_t realtime_now()
 {
 	struct timespec now_ts;
-	clock_gettime(CLOCK_MONOTONIC, &now_ts);
+	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &now_ts);
+	//CLOCK_MONOTONIC
+	//CLOCK_PROCESS_CPUTIME_ID
+	//CLOCK_THREAD_CPUTIME_ID
 	return TIMESPEC_NSEC(&now_ts);
 }
 

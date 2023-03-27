@@ -120,7 +120,7 @@ int main(int argc, char **argv)
 		//FREE_TRIPLE_SIDED
 		//N_SIDED
 		
-		s_cfg.h_cfg = TEST;
+		s_cfg.h_cfg = SIMPLE_DOUBLE_SIDED;
 
 		//Hammer Data
 		//RANDOM,
